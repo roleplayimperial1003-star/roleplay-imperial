@@ -1,4 +1,7 @@
-name: Gerar APK
+
+
+on:
+  name: Gerar APK
 
 on:
   workflow_dispatch:
@@ -22,7 +25,7 @@ jobs:
           cp manifest.json icon-192.png icon-512.png app/www/
           cp icon-only.png icon-foreground.png icon-background.png app/assets/
           cp index.html app/www/index.html
-          sed -i "s#window.MR_SERVER=''#window.MR_SERVER='${{ vars.SERVER_URL }}'#" app/www/index.html
+          sed -i "s#window.MR_SERVER=''#window.MR_SERVER='wss://roleplay-imperial-7uec.onrender.com/ws'#" app/www/index.html
           echo '{"name":"roleplay-imperial-app","version":"1.0.0","private":true,"dependencies":{"@capacitor/android":"^6.2.0","@capacitor/cli":"^6.2.0","@capacitor/core":"^6.2.0"},"devDependencies":{"@capacitor/assets":"^3.0.5"}}' > app/package.json
           echo '{"appId":"com.roleplay.imperial","appName":"Roleplay Imperial","webDir":"www","backgroundColor":"#0e1627"}' > app/capacitor.config.json
 
