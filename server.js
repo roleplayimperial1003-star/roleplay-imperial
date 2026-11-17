@@ -251,6 +251,10 @@ const server = http.createServer((req, res) => {
     const a = path.join(PUB, 'index.html'), b = path.join(__dirname, 'index.html');
     return serveFile(res, fs.existsSync(a) ? a : b);
   }
+  if (url === '/manifest.json' || url === '/icon-192.png' || url === '/icon-512.png') {
+    const rf = path.join(PUB, url);
+    return serveFile(res, fs.existsSync(rf) ? rf : path.join(__dirname, url));
+  }
   const f = path.normalize(path.join(PUB, url));
   if (!f.startsWith(PUB + path.sep) || !MIME[path.extname(f).toLowerCase()]) {
     res.writeHead(404); return res.end('Not found');
