@@ -3110,6 +3110,44 @@ function addRemote(id,n,x,z,h,f){
 }
 function delRemote(id){const r=remotes.get(id);if(r){sc.remove(r.g);try{if(r.tag){if(r.tag.material){if(r.tag.material.map)r.tag.material.map.dispose();r.tag.material.dispose()}}}catch(e){}remotes.delete(id)}}
 var REMCAP=/iPhone|iPad|iPod/.test(navigator.userAgent)?14:28,_remL=[];
+/* ===== veículo visto pelos outros jogadores (caminhão, carro, viatura, ambulância...) ===== */
+function vdesc(){
+ const T=f=>{try{return f()}catch(e){return false}};
+ try{
+  if(!T(()=>rented)||T(()=>foot))return '';
+  if(T(()=>VEH.bus))return 'bus';
+  if(!T(()=>VEH.car))return '';
+  if(T(()=>window.AMB&&window.AMB.on))return 'amb';
+  if(T(()=>PC.on))return 'pol';
+  if(T(()=>GV.on))return 'gv:'+GV.s;
+  if(T(()=>TC.on))return 'tc:'+TC.i+':'+TC.s;
+  const c=T(()=>BST.cars&&BST.cs>=0?BST.cars[BST.cs]:null);
+  if(c)return 'c:'+(+c.c||0)+':'+(+c.p||0);
+  return 'arm';
+ }catch(e){return ''}
+}
+function remVeh(r){
+ const d=r.vd||'';
+ if(r.vb===d)return;
+ r.vb=d;
+ if(!r.cv){r.cv=new THREE.Group();r.cv.visible=false;r.g.add(r.cv)}
+ const g=r.cv;
+ while(g.children.length)g.remove(g.children[0]);
+ g.rotation.x=0;r.cvOn=false;
+ if(!d)return;
+ const p=d.split(':');
+ try{
+  if(p[0]==='amb'&&typeof window.mkAmb==='function')window.mkAmb(g);
+  else if(p[0]==='arm'&&typeof window.mkArm==='function')window.mkArm(g);
+  else if(p[0]==='pol')carMesh(g,0xf2f2f2,true);
+  else if(p[0]==='bus')busMesh(g);
+  else if(p[0]==='gv'){const S=GVL[+p[1]];if(S){if(S.mk)S.mk(g);else carMesh(g,S.c,false)}}
+  else if(p[0]==='tc'){const L=LOT[+p[1]],S=L&&L.sl[+p[2]];if(S){if(S.mk)S.mk(g);else carMesh(g,S.c,false)}}
+  else if(p[0]==='c')carMesh(g,+p[1],false,+p[2]||0);
+  if(!g.children.length)carMesh(g,0x8a8f98,false);
+ }catch(e){try{while(g.children.length)g.remove(g.children[0]);carMesh(g,0x8a8f98,false)}catch(x){}}
+ r.cvOn=g.children.length>0;
+}
 function remoteTick(dt){
   const k=Math.min(1,dt*10),cx=cam.position.x,cz=cam.position.z;
   _remL.length=0;
@@ -3128,7 +3166,7 @@ function remoteTick(dt){
     r.g.visible=true;const d2=r.d2,dh=r.dh;
     r.g.position.set(r.x,GH(r.x,r.z),r.z);r.g.rotation.y=r.h;     // acompanha o morro
     const foot=!!r.f,sp=r.v;
-    r.fo.g.visible=foot;r.b.visible=!foot;r.tag.visible=d2<6400;
+    r.fo.g.visible=foot;try{remVeh(r)}catch(e){}r.b.visible=!foot&&!r.cvOn;if(r.cv)r.cv.visible=!foot&&!!r.cvOn;r.tag.visible=d2<6400;
     if(foot){
       r.fo.fd.visible=d2<900;        // rosto detalhado só de perto
       if(sp>.4)r.ph+=dt*(5+Math.min(sp,9)*.9);
@@ -3138,7 +3176,7 @@ function remoteTick(dt){
     }else{
       for(const w of r.rw)w.rotation.x-=sp*dt/.375;
       const gf=GH(r.x-Math.sin(r.h)*.85,r.z-Math.cos(r.h)*.85),gr=GH(r.x+Math.sin(r.h)*.85,r.z+Math.cos(r.h)*.85);
-      r.b.rotation.x+=(Math.atan2(gf-gr,1.7)-r.b.rotation.x)*Math.min(1,dt*10);
+      r.b.rotation.x+=(Math.atan2(gf-gr,1.7)-r.b.rotation.x)*Math.min(1,dt*10);if(r.cv&&r.cvOn)r.cv.rotation.x+=(Math.atan2(gf-gr,1.7)-r.cv.rotation.x)*Math.min(1,dt*10);
       const wz=dt>0?dh/dt:0,lt=Math.max(-.6,Math.min(.6,Math.atan(.8*sp*wz/9.81)));
       r.lean+=(lt-r.lean)*Math.min(1,dt*8);r.b.rotation.z=r.lean;
     }
@@ -3160,7 +3198,7 @@ function netMsg(d){
   else if(d.t==='ok')onlineStart(d);
   else if(d.t==='join'){try{admRejoin(d.n)}catch(e){}setTimeout(()=>{try{holdSync();AD.hbT=0}catch(e){}},800);addRemote(d.id,d.n,d.x,d.z,d.h,d.f);chatSay('➕ '+d.n+' entrou','sys')}
   else if(d.t==='leave'){const r=remotes.get(d.id);if(r)chatSay('➖ '+r.n+' saiu','sys');delRemote(d.id)}
-  else if(d.t==='st'){for(const a of d.p){const r=remotes.get(a[0]);if(r){r.tx=a[1];r.tz=a[2];r.th=a[3];r.f=a[4];r.sp=a[5]}}}
+  else if(d.t==='st'){for(const a of d.p){const r=remotes.get(a[0]);if(r){r.tx=a[1];r.tz=a[2];r.th=a[3];r.f=a[4];r.sp=a[5];r.vd=a[6]||''}}}
   else if(d.t==='chat'){const m=String(d.m).slice(0,120);if(admRecv(m,d))return;if(muteHid(d,m))return;if(dmRecv(m,d))return;if(ptrRecv(m,d))return;if(dwnRecv(m,d))return;if(rkRecv(m,d))return;if(paxRecv(m,d))return;if(holdRecv(m,d))return;if(govRecv(m,d))return;if(adRecv(m,d))return;if(alrRecv(m,d))return;const q=/^~~(exe|pol|fv|fam)~~/.exec(m);
    if(q){if(inOrg(q[1]))rkShow(q[1],String(d.n).slice(0,24),m.slice(q[0].length))}
    else{const g=nearTag(d.n);miniSay(g[0],g[1],(MSKN[d.n]?'🎭 Mascarado':String(d.n).slice(0,24)),cleanChat(m))}}
@@ -3187,7 +3225,7 @@ function netAuth(kind){
 el('lg').addEventListener('click',()=>netAuth('login'));
 el('rg').addEventListener('click',()=>netAuth('reg'));
 el('pwd').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')netAuth('login')});el('pwd').addEventListener('keyup',e=>e.stopPropagation());
-setInterval(()=>{if(online)netSend({t:'pos',x:+(foot?px:bx).toFixed(2),z:+(foot?pz:bz).toFixed(2),h:+(foot?ph:h).toFixed(3),f:foot?1:0,s:+sp.toFixed(1)})},100);
+setInterval(()=>{if(online)netSend({t:'pos',x:+(foot?px:bx).toFixed(2),z:+(foot?pz:bz).toFixed(2),h:+(foot?ph:h).toFixed(3),f:foot?1:0,s:+sp.toFixed(1),v:vdesc()})},100);
 addEventListener('pagehide',()=>{if(online)netSave(true)});
 netConnect();
 // entrada, aluguel e salvamento
@@ -7334,7 +7372,7 @@ if(typeof chatCmd==='function'){const oc=chatCmd;window.chatCmd=function(t){
 (function(){try{
 const HOSPS=[{sx:-40,sz:-140,lx:-20,lz:-140},{sx:80,sz:220,lx:100,lz:220}];
 const AV=36,AA=12,HW={lie:false,x:0,z:0},AMB={on:false,l:-1,s:-1};window.AMB=AMB;let AMBL=0;
-function mkAmb(g){carMesh(g,0xffffff,false);
+window.mkAmb=mkAmb;function mkAmb(g){carMesh(g,0xffffff,false);
  cb(1.84,1.05,2,0xffffff,0,1.43,1.1,g,1);
  for(const s of[-1,1]){cb(.03,.22,2,0xd7263d,s*.93,1.2,1.1,g);cb(.03,.7,.2,0xd7263d,s*.94,1.6,1.1,g);cb(.03,.2,.7,0xd7263d,s*.94,1.6,1.1,g)}
  cb(.2,.7,.03,0xd7263d,0,1.5,2.12,g);cb(.7,.2,.03,0xd7263d,0,1.5,2.12,g);
@@ -10642,7 +10680,7 @@ function decal(txt,w,h,fs,fg,x,y,z,ry,p){
  var m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t,transparent:true,side:THREE.DoubleSide}));
  m.position.set(x,y,z);m.rotation.y=ry;p.add(m);return m}
 // ===== CARRO FORTE REALISTA: cabine blindada + baú reforçado (frente = -z) =====
-function mkArm(g){
+window.mkArm=mkArm;function mkArm(g){
  var W=0xe9ecee,W2=0xd2d6da,K=0x1b1e22,B=0x1c4fa8,R=0xc9302c,GL=0x14222c,X;
  // chassi, eixos e tanque
  box(2.3,.4,8.0,0x22262b,0,.62,-.1,g);

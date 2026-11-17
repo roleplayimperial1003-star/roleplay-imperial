@@ -113,7 +113,7 @@ async function auth(c, d, reg) {
     if (sessions.size >= MAX) return send(c, { t: 'err', m: 'Servidor lotado (' + MAX + '/' + MAX + ')' });
 
     c.auth = true; c.acc = acc; c.name = acc.name;
-    c.x = c.z = c.h = 0; c.f = 0; c.s = 0; c.dirty = false;
+    c.x = c.z = c.h = 0; c.f = 0; c.s = 0; c.v = ''; c.dirty = false;
     const others = [...sessions.values()].map(pub);
     sessions.set(c.id, c);
     byName.set(key, c);
@@ -156,6 +156,7 @@ function onMessage(c, raw) {
       if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(h) || !Number.isFinite(s)) return;
       if (Math.abs(x) > 50000 || Math.abs(z) > 50000) return;
       c.x = x; c.z = z; c.h = h; c.f = d.f ? 1 : 0;
+      c.v = (typeof d.v === 'string' && /^[a-z0-9:.-]{0,24}$/.test(d.v)) ? d.v : '';
       c.s = Math.max(0, Math.min(60, s));
       c.dirty = true;
       break;
@@ -217,7 +218,7 @@ setInterval(() => {
           const dx = o.x - r.x, dz = o.z - r.z;
           if (dx * dx + dz * dz > NEAR2) continue;
         }
-        p.push([o.id, o.x, o.z, o.h, o.f, o.s]);
+        p.push([o.id, o.x, o.z, o.h, o.f, o.s, o.v || '']);
       }
       if (p.length) send(r, { t: 'st', p }, true);
     }
